@@ -1,28 +1,28 @@
 #ifndef HASH_SET_SEQUENTIAL_H
 #define HASH_SET_SEQUENTIAL_H
 
-#include <cassert>
-#include <vector>
 #include <algorithm>
+#include <cassert>
 #include <functional>
+#include <vector>
 
 #include "src/hash_set_base.h"
 
 template <typename T> class HashSetSequential : public HashSetBase<T> {
 public:
   explicit HashSetSequential(size_t initial_capacity)
-    : capacity_(initial_capacity)
-    , table_(std::vector<std::vector<T>>(initial_capacity, std::vector<T>())) {}
+      : capacity_(initial_capacity), table_(std::vector<std::vector<T>>(
+                                         initial_capacity, std::vector<T>())) {}
 
   bool Add(T elem) final {
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
     if (it == table_[hash].end()) {
-        size_++;
-        table_[hash].push_back(elem);
-        return true;
+      size_++;
+      table_[hash].push_back(elem);
+      return true;
     } else {
-        return false;
+      return false;
     }
   }
 
@@ -30,11 +30,11 @@ public:
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
     if (it == table_[hash].end()) {
-        return false;
+      return false;
     } else {
-        size_--;
-        table_[hash].erase(it);
-        return true;
+      size_--;
+      table_[hash].erase(it);
+      return true;
     }
   }
 
@@ -44,9 +44,8 @@ public:
     return it != table_[hash].end();
   }
 
-  [[nodiscard]] size_t Size() const final {
-    return size_;
-  }
+  [[nodiscard]] size_t Size() const final { return size_; }
+
 private:
   const size_t capacity_;
   size_t size_ = 0;
