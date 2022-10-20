@@ -1,8 +1,8 @@
 #ifndef HASH_SET_COARSE_GRAINED_H
 #define HASH_SET_COARSE_GRAINED_H
 
-#include <algorithm>
 #include <cassert>
+#include <algorithm>
 #include <functional>
 #include <mutex>
 #include <vector>
