@@ -13,6 +13,7 @@ private:
   std::vector<std::vector<T>> table_; // A vector of vectors for storage
   size_t capacity_;                   // The number of buckets
   size_t size_ = 0;                   // The number of elements
+
 public:
   // Initialize the capacity and initialise the table
   explicit HashSetSequential(size_t initial_capacity)
