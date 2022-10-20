@@ -1,8 +1,8 @@
 #ifndef HASH_SET_COARSE_GRAINED_H
 #define HASH_SET_COARSE_GRAINED_H
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <mutex>
 #include <vector>
@@ -22,9 +22,9 @@ public:
     if (it == table_[hash].end()) {
       size_++;
       table_[hash].push_back(elem);
-        if (size_ > 4*capacity_) {
-            Resize();
-        }
+      if (size_ > 4 * capacity_) {
+        Resize();
+      }
       return true;
     } else {
       return false;
@@ -53,18 +53,18 @@ public:
 
   [[nodiscard]] size_t Size() const final { return size_; }
 
-    void Resize() {
-        std::scoped_lock<std::recursive_mutex> lock(mutex_);
-        capacity_ *= 2;
-        std::vector<std::vector<T>> old_table = table_;
-        table_ = std::vector<std::vector<T>>(capacity_, std::vector<T>());
-        for (auto& bucket : old_table) {
-            for (T elem : bucket) {
-                size_t hash = std::hash<T>()(elem) % capacity_;
-                table_[hash].push_back(elem);
-            }
-        }
+  void Resize() {
+    std::scoped_lock<std::recursive_mutex> lock(mutex_);
+    capacity_ *= 2;
+    std::vector<std::vector<T>> old_table = table_;
+    table_ = std::vector<std::vector<T>>(capacity_, std::vector<T>());
+    for (auto &bucket : old_table) {
+      for (T elem : bucket) {
+        size_t hash = std::hash<T>()(elem) % capacity_;
+        table_[hash].push_back(elem);
+      }
     }
+  }
 
 private:
   size_t capacity_;
