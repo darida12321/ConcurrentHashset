@@ -9,18 +9,6 @@
 #include "src/hash_set_base.h"
 
 template <typename T> class HashSetSequential : public HashSetBase<T> {
-private:
-    void Resize() {
-        capacity_ *= 2;
-        std::vector<std::vector<T>> old_table = table_;
-        table_ = std::vector<std::vector<T>>(capacity_, std::vector<T>());
-        for (auto& bucket : old_table) {
-            for (T elem : bucket) {
-                size_t hash = std::hash<T>()(elem) % capacity_;
-                table_[hash].push_back(elem);
-            }
-        }
-    }
 public:
   explicit HashSetSequential(size_t initial_capacity)
       : capacity_(initial_capacity), table_(std::vector<std::vector<T>>(
@@ -60,6 +48,18 @@ public:
   }
 
   [[nodiscard]] size_t Size() const final { return size_; }
+  
+    void Resize() {
+        capacity_ *= 2;
+        std::vector<std::vector<T>> old_table = table_;
+        table_ = std::vector<std::vector<T>>(capacity_, std::vector<T>());
+        for (auto& bucket : old_table) {
+            for (T elem : bucket) {
+                size_t hash = std::hash<T>()(elem) % capacity_;
+                table_[hash].push_back(elem);
+            }
+        }
+    }
 
 private:
   size_t capacity_;

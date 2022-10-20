@@ -16,12 +16,15 @@ public:
                                          initial_capacity, std::vector<T>())) {}
 
   bool Add(T elem) final {
-    std::scoped_lock<std::mutex> lock(mutex_);
+    std::scoped_lock<std::recursive_mutex> lock(mutex_);
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
     if (it == table_[hash].end()) {
       size_++;
       table_[hash].push_back(elem);
+        if (size_ > 4*capacity_) {
+            Resize();
+        }
       return true;
     } else {
       return false;
@@ -29,7 +32,7 @@ public:
   }
 
   bool Remove(T elem) final {
-    std::scoped_lock<std::mutex> lock(mutex_);
+    std::scoped_lock<std::recursive_mutex> lock(mutex_);
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
     if (it == table_[hash].end()) {
@@ -42,7 +45,7 @@ public:
   }
 
   [[nodiscard]] bool Contains(T elem) final {
-    std::scoped_lock<std::mutex> lock(mutex_);
+    std::scoped_lock<std::recursive_mutex> lock(mutex_);
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
     return it != table_[hash].end();
@@ -50,10 +53,23 @@ public:
 
   [[nodiscard]] size_t Size() const final { return size_; }
 
+    void Resize() {
+        std::scoped_lock<std::recursive_mutex> lock(mutex_);
+        capacity_ *= 2;
+        std::vector<std::vector<T>> old_table = table_;
+        table_ = std::vector<std::vector<T>>(capacity_, std::vector<T>());
+        for (auto& bucket : old_table) {
+            for (T elem : bucket) {
+                size_t hash = std::hash<T>()(elem) % capacity_;
+                table_[hash].push_back(elem);
+            }
+        }
+    }
+
 private:
-  const size_t capacity_;
+  size_t capacity_;
   size_t size_ = 0;
-  std::mutex mutex_;
+  std::recursive_mutex mutex_;
   std::vector<std::vector<T>> table_;
 };
 
