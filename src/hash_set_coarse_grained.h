@@ -16,18 +16,18 @@ private:
   std::mutex mutex_;                  // A coarse grained mutex
   size_t capacity_;                   // The number of buckets
   size_t size_ = 0;                   // The number of elements
-  
+
   // size and capacity are only changed by one thread at a time,
   // so there is no need for atomic variables.
 
   // For the coarse grained lock, I am using a simple mutex.
   //
-  // The book uses a recursive mutex, however we do not use 
+  // The book uses a recursive mutex, however we do not use
   // re-entrant methods, so we have no need for that.
   //
-  // Using an std::shared_mutex so that read operations can work 
+  // Using an std::shared_mutex so that read operations can work
   // in paralell would be good, but in practice, the overhead
-  // from using a complex locking mechanism outweighs its 
+  // from using a complex locking mechanism outweighs its
   // advantages. Here, we have an about constant time lookup.
 
 public:
@@ -41,7 +41,7 @@ public:
     // Acquire the mutex using a scoped lock
     std::scoped_lock<std::mutex> lock(mutex_);
     // std::unique_lock<std::shared_mutex> lock(mutex_);
-    
+
     size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is already contained, return false.
@@ -56,7 +56,7 @@ public:
 
     // If the average bucket size is 4, increase size.
     //
-    // We do not need to double check the size for change as 
+    // We do not need to double check the size for change as
     // in the book, since we are still holding the one lock
     if (size_ > 4 * capacity_) {
       capacity_ *= 2;
