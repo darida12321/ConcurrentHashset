@@ -5,6 +5,7 @@
 #include <cassert>
 #include <functional>
 #include <mutex>
+#include <shared_mutex>
 #include <vector>
 
 #include "src/hash_set_base.h"
@@ -12,7 +13,7 @@
 template <typename T> class HashSetCoarseGrained : public HashSetBase<T> {
 private:
   std::vector<std::vector<T>> table_; // A vector of vectors for storage
-  std::mutex mutex_;                  // A coarse grained mutex
+  std::shared_mutex mutex_;           // A coarse grained mutex
   size_t capacity_;                   // The number of buckets
   size_t size_ = 0;                   // The number of elements
 
@@ -32,7 +33,7 @@ public:
   // Add an element to the hash set
   bool Add(T elem) final {
     // Acquire the mutex using a scoped lock
-    std::scoped_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is already contained, return false.
@@ -70,7 +71,7 @@ public:
   // Remove an element from the hashset
   bool Remove(T elem) final {
     // Acquire the mutex using a scoped lock
-    std::scoped_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);
 
     size_t hash = std::hash<T>()(elem) % capacity_;
     // If the element is not included, return false
@@ -88,7 +89,7 @@ public:
   // Check if an element is contained in the hashset
   [[nodiscard]] bool Contains(T elem) final {
     // Acquire the mutex using a scoped lock
-    std::scoped_lock<std::mutex> lock(mutex_);
+    std::shared_lock<std::shared_mutex> lock(mutex_);
 
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
