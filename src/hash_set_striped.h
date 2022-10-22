@@ -11,11 +11,12 @@
 
 #include "src/hash_set_base.h"
 
-// TODO Array of mutexes instead of vector
+// TODO Custom lock for list
 template <typename T> class HashSetStriped : public HashSetBase<T> {
 private:
   std::vector<std::vector<T>> table_; // A vector of vectors for storage
-  std::vector<std::mutex> mutexes_;   //
+  std::mutex* mutexes_;   //
+  size_t mutex_count_;
   size_t capacity_;                   // The number of buckets
   std::atomic<size_t> size_;          // The number of elements
 
@@ -23,7 +24,7 @@ public:
   // Initialize the capacity and initialise the table
   explicit HashSetStriped(size_t initial_capacity)
       : table_(std::vector<std::vector<T>>(initial_capacity, std::vector<T>())),
-        mutexes_(std::vector<std::mutex>(initial_capacity)),
+        mutexes_(new std::mutex[initial_capacity]), mutex_count_(initial_capacity),
         capacity_(initial_capacity), size_(0) {}
 
   // Add an element to the hash set
@@ -35,7 +36,7 @@ public:
       size_t old_capacity = capacity_;
 
       // Acquire all of the locks except the one we hold
-      for (size_t i = 0; i < mutexes_.size(); i++) {
+      for (size_t i = 0; i < mutex_count_; i++) {
         mutexes_[i].lock();
       }
 
@@ -54,14 +55,14 @@ public:
       }
 
       // Set old table to the new one
-      for (size_t i = 0; i < mutexes_.size(); i++) {
+      for (size_t i = 0; i < mutex_count_; i++) {
         mutexes_[i].unlock();
       }
     }
 
     // Acquire the correct mutex using a scoped lock
     std::scoped_lock<std::mutex> lock(
-        mutexes_[std::hash<T>()(elem) % mutexes_.size()]);
+        mutexes_[std::hash<T>()(elem) % mutex_count_]);
     size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is already contained, return false.
@@ -81,7 +82,7 @@ public:
   bool Remove(T elem) final {
     // Acquire the correct mutex using a scoped lock
     std::scoped_lock<std::mutex> lock(
-        mutexes_[std::hash<T>()(elem) % mutexes_.size()]);
+        mutexes_[std::hash<T>()(elem) % mutex_count_]);
     size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is not included, return false
@@ -100,7 +101,7 @@ public:
   [[nodiscard]] bool Contains(T elem) final {
     size_t hash = std::hash<T>()(elem) % capacity_;
     // Acquire the correct mutex using a scoped lock
-    std::scoped_lock<std::mutex> lock(mutexes_[hash % mutexes_.size()]);
+    std::scoped_lock<std::mutex> lock(mutexes_[hash % mutex_count_]);
 
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
     // Return if the element was found
