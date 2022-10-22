@@ -11,6 +11,8 @@
 
 #include "src/hash_set_base.h"
 
+
+
 // TODO Custom lock for list
 template <typename T> class HashSetStriped : public HashSetBase<T> {
 private:
@@ -26,6 +28,9 @@ public:
       : table_(std::vector<std::vector<T>>(initial_capacity, std::vector<T>())),
         mutexes_(new std::mutex[initial_capacity]), mutex_count_(initial_capacity),
         capacity_(initial_capacity), size_(0) {}
+  ~HashSetStriped() override {
+    delete[] mutexes_;
+  }
 
   // Add an element to the hash set
   bool Add(T elem) final {
