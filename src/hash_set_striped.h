@@ -74,6 +74,7 @@ public:
       }
     }
 
+    //TODO: Get hash into own variable
     // Acquire the correct mutex using a scoped lock
     std::scoped_lock<std::mutex> lock(
         mutexes_[std::hash<T>()(elem) % mutex_count_]);

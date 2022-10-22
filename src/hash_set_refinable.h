@@ -10,14 +10,15 @@
 #include <mutex>
 #include <shared_mutex>
 #include <vector>
+#include <condition_variable>
 
 template <typename T> class HashSetRefinable : public HashSetBase<T> {
 private:
   std::vector<std::vector<T>> table_; // A vector of vectors for storage
-  std::shared_mutex resize_mutex_;
   std::vector<std::unique_ptr<std::mutex>> mutexes_; //
   size_t capacity_;                 // The number of buckets
   std::atomic<size_t> size_;        // The number of elements
+  std::shared_mutex resize_mutex_;
 
 public:
   // Initialize the capacity and initialise the table
@@ -32,19 +33,17 @@ public:
 
   // Add an element to the hash set
   bool Add(T elem) final {
-    // If the average bucket size is 4, increase size.
-    // No need for double checking for the size changing,
-    // since we still have the lock
+    // Resize
     if (size_ > 4 * capacity_) {
       size_t old_capacity = capacity_;
 
-      std::unique_lock<std::shared_mutex> lock(resize_mutex_);
+      std::unique_lock<std::shared_mutex> rl(resize_mutex_);
 
       if (capacity_ == old_capacity) {
         capacity_ *= 2;
-        // Create a new, bigger table
+
+        // Resize table
         std::vector<std::vector<T>> new_table(capacity_, std::vector<T>());
-        // Move all old table elements to new one
         for (auto &bucket : table_) {
           for (T curr_elem : bucket) {
             size_t curr_hash = std::hash<T>()(curr_elem) % capacity_;
@@ -53,19 +52,18 @@ public:
         }
         table_ = new_table;
         
-        // Create a new set of locks
+        // Resize locks
         for (size_t i = mutexes_.size(); i < capacity_; i++) {
           mutexes_.push_back(std::make_unique<std::mutex>());
         }
       }
+
     }
 
     // Acquire the correct mutex using a scoped lock
-    // std::scoped_lock<std::mutex> lock(
-    //     mutexes_[std::hash<T>()(elem) % mutexes_.size()]);
-    std::shared_lock<std::shared_mutex> write(resize_mutex_);
-    std::scoped_lock<std::mutex> lock(
-        *mutexes_[std::hash<T>()(elem) % capacity_]);
+    std::shared_lock<std::shared_mutex> rl(resize_mutex_);
+    std::scoped_lock<std::mutex> lock(*mutexes_[std::hash<T>()(elem) % capacity_]);
+
     size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is already contained, return false.
@@ -84,10 +82,9 @@ public:
   // Remove an element from the hashset
   bool Remove(T elem) final {
     // Acquire the correct mutex using a scoped lock
-    std::shared_lock<std::shared_mutex> write(resize_mutex_);
+    std::shared_lock<std::shared_mutex> rl(resize_mutex_);
     std::scoped_lock<std::mutex> lock(*mutexes_[std::hash<T>()(elem) % capacity_]);
-    // std::scoped_lock<std::mutex> lock(
-    //     mutexes_[std::hash<T>()(elem) % mutexes_.size()]);
+
     size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is not included, return false
@@ -104,10 +101,11 @@ public:
 
   // Check if an element is contained in the hashset
   [[nodiscard]] bool Contains(T elem) final {
-    size_t hash = std::hash<T>()(elem) % capacity_;
     // Acquire the correct mutex using a scoped lock
-    std::shared_lock<std::shared_mutex> write(resize_mutex_);
-    std::scoped_lock<std::mutex> lock(*mutexes_[hash % capacity_]);
+    std::shared_lock<std::shared_mutex> rl(resize_mutex_);
+    std::scoped_lock<std::mutex> lock(*mutexes_[std::hash<T>()(elem) % capacity_]);
+
+    size_t hash = std::hash<T>()(elem) % capacity_;
 
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
     // Return if the element was found
