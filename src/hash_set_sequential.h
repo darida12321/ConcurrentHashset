@@ -71,8 +71,12 @@ public:
 
   // Check if an element is contained in the hashset
   [[nodiscard]] bool Contains(T elem) final {
+    // If we have a lot of lookups, a binary search algorithm
+    // might be a little faster, however, due to resizing,
+    // this will contain an average of 4 elements making it O(1).
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
+
     // Return if the element was found
     return it != table_[hash].end();
   }

@@ -11,12 +11,13 @@
 
 #include "src/hash_set_base.h"
 
+// TODO Array of mutexes instead of vector
 template <typename T> class HashSetStriped : public HashSetBase<T> {
 private:
   std::vector<std::vector<T>> table_; // A vector of vectors for storage
-  std::vector<std::mutex> mutexes_;
-  size_t capacity_;          // The number of buckets
-  std::atomic<size_t> size_; // The number of elements
+  std::vector<std::mutex> mutexes_;   //
+  size_t capacity_;                   // The number of buckets
+  std::atomic<size_t> size_;          // The number of elements
 
 public:
   // Initialize the capacity and initialise the table
@@ -58,10 +59,10 @@ public:
       }
     }
 
-    size_t hash = std::hash<T>()(elem) % capacity_;
     // Acquire the correct mutex using a scoped lock
-    std::scoped_lock<std::mutex> lock(mutexes_[hash % mutexes_.size()]);
-    hash = std::hash<T>()(elem) % capacity_;
+    std::scoped_lock<std::mutex> lock(
+        mutexes_[std::hash<T>()(elem) % mutexes_.size()]);
+    size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is already contained, return false.
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
@@ -78,9 +79,10 @@ public:
 
   // Remove an element from the hashset
   bool Remove(T elem) final {
-    size_t hash = std::hash<T>()(elem) % capacity_;
     // Acquire the correct mutex using a scoped lock
-    std::scoped_lock<std::mutex> lock(mutexes_[hash % mutexes_.size()]);
+    std::scoped_lock<std::mutex> lock(
+        mutexes_[std::hash<T>()(elem) % mutexes_.size()]);
+    size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is not included, return false
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);

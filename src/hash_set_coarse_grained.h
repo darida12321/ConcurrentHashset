@@ -102,6 +102,9 @@ public:
     std::scoped_lock<std::mutex> lock(mutex_);
     // std::shared_lock<std::shared_mutex> lock(mutex_);
 
+    // If we have a lot of lookups, a binary search algorithm
+    // might be a little faster, however, due to resizing,
+    // this will contain an average of 4 elements making it O(1).
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
 
