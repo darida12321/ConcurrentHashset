@@ -13,16 +13,22 @@
 template <typename T> class HashSetCoarseGrained : public HashSetBase<T> {
 private:
   std::vector<std::vector<T>> table_; // A vector of vectors for storage
-  std::shared_mutex mutex_;           // A coarse grained mutex
+  std::mutex mutex_;                  // A coarse grained mutex
   size_t capacity_;                   // The number of buckets
   size_t size_ = 0;                   // The number of elements
+  
+  // size and capacity are only changed by one thread at a time,
+  // so there is no need for atomic variables.
 
-  // A recursive mutex is not needed since there is no re-entrancy
-  // in our code. This will be simply acquired using a scoped lock,
-  // since we are just acquireing it and releasing it once.
-
-  // The size can be non-atomic since there is only one thread
-  // modifying it at any given time
+  // For the coarse grained lock, I am using a simple mutex.
+  //
+  // The book uses a recursive mutex, however we do not use 
+  // re-entrant methods, so we have no need for that.
+  //
+  // Using an std::shared_mutex so that read operations can work 
+  // in paralell would be good, but in practice, the overhead
+  // from using a complex locking mechanism outweighs its 
+  // advantages. Here, we have an about constant time lookup.
 
 public:
   // Initialize the capacity and initialise the table
@@ -33,7 +39,9 @@ public:
   // Add an element to the hash set
   bool Add(T elem) final {
     // Acquire the mutex using a scoped lock
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(mutex_);
+    // std::unique_lock<std::shared_mutex> lock(mutex_);
+    
     size_t hash = std::hash<T>()(elem) % capacity_;
 
     // If the element is already contained, return false.
@@ -47,8 +55,9 @@ public:
     size_++;
 
     // If the average bucket size is 4, increase size.
-    // No need for double checking for the size changing,
-    // since we still have the lock
+    //
+    // We do not need to double check the size for change as 
+    // in the book, since we are still holding the one lock
     if (size_ > 4 * capacity_) {
       capacity_ *= 2;
       // Create a new, bigger table
@@ -71,7 +80,8 @@ public:
   // Remove an element from the hashset
   bool Remove(T elem) final {
     // Acquire the mutex using a scoped lock
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(mutex_);
+    // std::unique_lock<std::shared_mutex> lock(mutex_);
 
     size_t hash = std::hash<T>()(elem) % capacity_;
     // If the element is not included, return false
@@ -89,10 +99,12 @@ public:
   // Check if an element is contained in the hashset
   [[nodiscard]] bool Contains(T elem) final {
     // Acquire the mutex using a scoped lock
-    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(mutex_);
+    // std::shared_lock<std::shared_mutex> lock(mutex_);
 
     size_t hash = std::hash<T>()(elem) % capacity_;
     auto it = std::find(table_[hash].begin(), table_[hash].end(), elem);
+
     // Return if the element was found
     return it != table_[hash].end();
   }
