@@ -11,9 +11,24 @@
 
 #include "src/hash_set_base.h"
 
+class ArrayLock {
+private:
+  std::mutex* mutexes_;
+  size_t size_;
+public:
+  ArrayLock (std::mutex* mutexes, size_t size): mutexes_(mutexes), size_(size) {
+    for (size_t i = 0; i < size_; i++) {
+      mutexes_[i].lock();
+    }
+  }
 
+  ~ArrayLock() {
+    for (size_t i = 0; i < size_; i++) {
+      mutexes_[i].unlock();
+    }
+  }
+};
 
-// TODO Custom lock for list
 template <typename T> class HashSetStriped : public HashSetBase<T> {
 private:
   std::vector<std::vector<T>> table_; // A vector of vectors for storage
@@ -28,6 +43,7 @@ public:
       : table_(std::vector<std::vector<T>>(initial_capacity, std::vector<T>())),
         mutexes_(new std::mutex[initial_capacity]), mutex_count_(initial_capacity),
         capacity_(initial_capacity), size_(0) {}
+
   ~HashSetStriped() override {
     delete[] mutexes_;
   }
@@ -41,9 +57,7 @@ public:
       size_t old_capacity = capacity_;
 
       // Acquire all of the locks except the one we hold
-      for (size_t i = 0; i < mutex_count_; i++) {
-        mutexes_[i].lock();
-      }
+      ArrayLock al(mutexes_, mutex_count_);
 
       if (capacity_ == old_capacity) {
         capacity_ *= 2;
@@ -57,11 +71,6 @@ public:
           }
         }
         table_ = new_table;
-      }
-
-      // Set old table to the new one
-      for (size_t i = 0; i < mutex_count_; i++) {
-        mutexes_[i].unlock();
       }
     }
 
