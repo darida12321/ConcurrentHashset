@@ -46,6 +46,8 @@ public:
     size_++;
 
     // If the average bucket size is 4, increase size.
+    // No need for double checking for the size changing,
+    // since we still have the lock
     if (size_ > 4 * capacity_) {
       capacity_ *= 2;
       // Create a new, bigger table
